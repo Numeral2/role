@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Text Extraction (OCR)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        h1 {
+            text-align: center;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        input[type="file"] {
+            margin: 20px 0;
+        }
+        .drop-zone {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            margin-top: 10px;
+            cursor: pointer;
+            border-radius: 8px;
+            background-color: #fafafa;
+        }
+        .drop-zone.dragover {
+            background-color: #e3f2fd;
+        }
+        button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e2e2e2;
+            border-radius: 8px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: "Courier New", monospace;
+        }
+        #send-to-n8n {
+            display: none;
+            margin-top: 10px;
+            background-color: #007bff;
+        }
+        #send-to-n8n:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>Upload or Drag & Drop Images for Text Extraction</h1>
+    <div class="container">
+        <form id="upload-form" enctype="multipart/form-data">
+            <input type="file" name="files" id="files" accept="image/*" multiple required>
+            <div class="drop-zone" id="drop-zone">Drag & Drop images here</div>
+            <button type="submit">Upload and Extract Text</button>
+        </form>
+        <div class="result" id="extracted-text" style="display: none;"></div>
+        <button id="send-to-n8n">Send to Make.com</button>
+        <div id="error-message" style="color: red; display: none;"></div>
+    </div>
+    <script>
+        let extractedText = "";
+
+        document.getElementById("upload-form").addEventListener("submit", async function(event) {
+            event.preventDefault();
+            let formData = new FormData();
+            let files = document.getElementById("files").files;
+            for (let i = 0; i < files.length; i++) {
+                formData.append("files", files[i]);
+            }
+
+            try {
+                let response = await fetch("/process-image", {
+                    method: "POST",
+                    body: formData
+                });
+                let data = await response.json();
+                if (response.ok) {
+                    extractedText = data.extracted_text;
+                    document.getElementById("extracted-text").style.display = "block";
+                    document.getElementById("extracted-text").textContent = extractedText;
+                    document.getElementById("send-to-n8n").style.display = "block";
+                    document.getElementById("error-message").style.display = "none";
+                } else {
+                    throw new Error(data.error || "Unknown error");
+                }
+            } catch (error) {
+                document.getElementById("error-message").style.display = "block";
+                document.getElementById("error-message").textContent = "Error: " + error.message;
+                document.getElementById("extracted-text").style.display = "none";
+                document.getElementById("send-to-n8n").style.display = "none";
+            }
+        });
+
+        document.getElementById("send-to-n8n").addEventListener("click", async function() {
+            if (!extractedText) return;
+            try {
+                let response = await fetch("https://hook.eu2.make.com/y94u5xvkf97g5nym3trgz2j2107nuu12", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ text: extractedText })
+                });
+                let data = await response.json();
+                if (response.ok) {
+                    alert("Text successfully sent to Make.com!");
+                } else {
+                    throw new Error(data.error || "Failed to send to Make.com");
+                }
+            } catch (error) {
+                alert("Error sending to Make.com: " + error.message);
+            }
+        });
+
+        const dropZone = document.getElementById("drop-zone");
+        dropZone.addEventListener("dragover", (event) => {
+            event.preventDefault();
+            dropZone.classList.add("dragover");
+        });
+        dropZone.addEventListener("dragleave", () => {
+            dropZone.classList.remove("dragover");
+        });
+        dropZone.addEventListener("drop", (event) => {
+            event.preventDefault();
+            dropZone.classList.remove("dragover");
+            document.getElementById("files").files = event.dataTransfer.files;
+        });
+    </script>
+</body>
+</html>
