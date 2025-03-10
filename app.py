@@ -3,7 +3,7 @@ from flask import Flask, request, jsonify, send_from_directory
 from PIL import Image, ImageEnhance, ImageFilter
 from paddleocr import PaddleOCR
 from io import BytesIO
-import requests  # Import requests to send data to Make.com
+import requests
 
 # Initialize Flask and PaddleOCR with Croatian language
 app = Flask(__name__)
@@ -64,12 +64,16 @@ def send_to_make():
     data = request.get_json()
     text = data.get('text', '')  # Get the extracted text from the request
     
+    # Check if text is empty
+    if not text:
+        return jsonify({'error': 'No text provided'}), 400
+    
     make_url = "https://hook.eu2.make.com/y94u5xvkf97g5nym3trgz2j2107nuu12"  # Replace with your Make.com webhook URL
     
     try:
         # Send the extracted text to Make.com via the webhook
         response = requests.post(make_url, json={'text': text})
-        response.raise_for_status()
+        response.raise_for_status()  # Raises an HTTPError if the response code is 4xx/5xx
 
         # Return the summary (Make.com should send this back)
         summarized_text = response.json().get('summary', '')
@@ -83,4 +87,6 @@ def send_to_make():
         return jsonify({'error': 'Failed to send to Make.com'}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # Ensure Flask is listening on all interfaces and the correct port
+    port = int(os.environ.get('PORT', 10000))  # Default port is 10000
+    app.run(host='0.0.0.0', port=port, debug=True)
